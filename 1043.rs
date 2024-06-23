@@ -1,8 +1,9 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::hash::{Hash, Hasher};
 use std::io::{Read, stdin};
+use std::rc::Rc;
 
-#[derive(Debug, Eq)]
+#[derive(Debug)]
 struct Person {
     id: u32,
     know_truth: bool,
@@ -14,43 +15,19 @@ impl Person {
     }
 }
 
-impl Hash for Person {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-    }
-}
-
-impl PartialEq for Person {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-
-#[derive(Debug, Eq)]
+#[derive(Debug)]
 struct Party {
     id: u32,
-    assigned_people: HashSet<Person>,
+    assigned_people: HashMap<u32, Person>,
     truth_people: u32,
 }
 
-impl Hash for Party {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-    }
-}
-
-impl PartialEq for Party {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
 
 impl Party {
     fn new(id: u32) -> Party {
         Party {
             id,
-            assigned_people: HashSet::new(),
+            assigned_people: HashMap::new(),
             truth_people: 0
         }
     }
@@ -59,16 +36,15 @@ impl Party {
         if person.know_truth {
             self.truth_people += 1;
         }
-
-        self.assigned_people.insert(person);
+        self.assigned_people.insert(person.id, person);
     }
 
     fn is_person_attend(&self, person: &Person) -> bool {
-        self.assigned_people.contains(&person)
+        self.assigned_people.contains_key(&person.id)
     }
 
     fn has_relationship(&self, other: &Self) -> bool {
-        for people in self.assigned_people.iter() {
+        for (_, people) in self.assigned_people.iter() {
             if other.is_person_attend(people) {
                 return true;
             }
@@ -83,56 +59,57 @@ impl Party {
 
 #[derive(Debug)]
 struct PartyOrganizer {
-    parties: HashMap<u32, Party>,
-    relationships: HashMap<u32, Vec<u32>>
+    edges: Vec<(Rc<Party>, Vec<Rc<Party>>)>
 }
 
 impl PartyOrganizer {
     fn new() -> PartyOrganizer {
         PartyOrganizer {
-            parties: HashMap::new(),
-            relationships: HashMap::new(),
+            edges: Vec::new(),
         }
     }
     fn add_party(&mut self, party: Party) {
-        self.relationships.insert(party.id, Vec::new());
+        let wrapped_party = Rc::new(party);
 
-        for (id, existed) in self.parties.iter() {
-            if party.has_relationship(existed) {
-                self.relationships.get_mut(id).unwrap().push(party.id);
-                self.relationships.get_mut(&party.id).unwrap().push(*id);
+        let mut new_relationships = Vec::new();
+
+        for (from, tos) in self.edges.iter_mut() {
+            if wrapped_party.has_relationship(from) {
+                tos.push(wrapped_party.clone());
+                new_relationships.push(from.clone());
             }
         }
-        self.parties.insert(party.id, party);
+
+        self.edges.push((wrapped_party, new_relationships));
     }
 
     fn find_can_lies(&self) -> u32 {
         let mut deque = VecDeque::new();
 
-        let mut hash_map = self.parties
+        let mut hash_map = self.edges
             .iter()
-            .map(|(x, _)| (*x, false))
-            .collect::<HashMap<u32, bool>>();
+            .map(|(from, tos)| (from.id, (from, tos, false)))
+            .collect::<HashMap<u32, _>>();
 
-        for (x, party) in self.parties.iter() {
+        for (party, _) in self.edges.iter() {
             if party.truth_included() {
-                deque.push_back(*x);
+                deque.push_back(party.id);
             }
         }
 
         while !deque.is_empty() {
             let x = deque.pop_front().unwrap();
             match hash_map.get_mut(&x) {
-              Some(y) if !*y => {
-                  *y = true;
-                  for person in self.relationships.get(&x).unwrap() {
-                      deque.push_back(*person);
+              Some((from, tos, can_tell_lie)) if !*can_tell_lie => {
+                  *can_tell_lie = true;
+                  for person in tos.iter() {
+                      deque.push_back(person.id);
                   }
               },
               _ => continue,
             }
         }
-        hash_map.into_iter().map(|(_, can_tell_lie)| if can_tell_lie { 0 } else { 1 }).sum()
+        hash_map.into_iter().map(|(_, (_, _, can_tell_lie))| if can_tell_lie { 0 } else { 1 }).sum()
     }
 }
 
