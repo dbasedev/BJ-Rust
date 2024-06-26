@@ -22,11 +22,10 @@ fn main() {
             '*' | '/' => {
                 while let Some(v) = stack.pop_back() {
                     if ['*', '/'].contains(&v) {
-                        result.push(v);
-                    } else {
                         stack.push_back(v);
                         break;
                     }
+                    result.push(v);
                 }
                 stack.push_back(c);
             },
