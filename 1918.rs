@@ -21,7 +21,7 @@ fn main() {
             }
             '*' | '/' => {
                 while let Some(v) = stack.pop_back() {
-                    if ['*', '/'].contains(&v) {
+                    if !['*', '/'].contains(&v) {
                         stack.push_back(v);
                         break;
                     }
