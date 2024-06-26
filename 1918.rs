@@ -20,11 +20,6 @@ fn main() {
                 }
             }
             '*' | '/' => {
-                if stack.is_empty() {
-                    stack.push_back(c);
-                    continue;
-                }
-
                 while let Some(v) = stack.pop_back() {
                     if ['*', '/'].contains(&v) {
                         result.push(v);
@@ -36,18 +31,12 @@ fn main() {
                 stack.push_back(c);
             },
             '+' | '-' => {
-                if stack.is_empty() {
-                    stack.push_back(c);
-                    continue;
-                }
-
                 while let Some(v) = stack.pop_back() {
                     if v == '(' {
                         stack.push_back(v);
                         break;
-                    } else {
-                        result.push(v);
                     }
+                    result.push(v);
                 }
                 stack.push_back(c);
             },
